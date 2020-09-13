@@ -1,0 +1,15 @@
+{
+  "picker": {
+    "data": {
+      "success": true
+    },
+    "api.data": {
+      "api.success": true,
+      "api.error": true,
+      "api.error.code": false
+    }
+  },
+  "array": ["list", "items"],
+  "variables": ["json", "j", "d", "_json"],
+  "maxComment": 0
+}

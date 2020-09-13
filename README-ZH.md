@@ -1,0 +1,175 @@
+[English](https://github.com/wenjunxiao/json-to-dart/blob/master/README.md) | [中文简体](https://github.com/wenjunxiao/json-to-dart/blob/master/README-ZH.md)
+
+# json-to-dart
+
+  根据JSON数据生成`dart`类，用于序列化和反序列化。在`flutter`中生成API接口的数据类时非常方便。
+  而且，生成的文件时可以逆向得原JSON数据，也可以根据修改重新构建。
+
+## 安装
+
+```bash
+$ npm install -g json-to-dart
+```
+
+## 使用
+
+  查看使用帮助
+```bash
+$ json2dart --help
+```
+### 生成
+
+#### 从标准输入中生成
+
+  执行以下命令，会提示输入JSON
+```bash
+$ json2dart --name Accounts --yes
+```
+  可以从任何地方拷贝JSON，然后粘贴到控制台中
+
+#### 从JSON文件生成
+
+```bash
+$ json2dart --name Accounts --yes --from accounts.json
+```
+
+#### 从HTTP资源生成
+
+```bash
+$ json2dart --name Accounts --yes --from http://url/of/accounts.json
+```
+
+### 修改与重构
+
+  如果你的数据结构有调整，比如新增了字段，或你想重命名生成的类，你可以选择使用完整的JSON数据重新生成一次。
+  但此时你可能丢弃了原来的JSON数据，获取新的JSON数据有点麻烦，怎么办？不用担心，所有有效的配置及JSON数据
+  都已经包含在文档注释的`{@tool json2dart }`和`{@end-tool}`中了。
+
+```dart
+/// {@tool json2dart --name Accounts}
+/// * items: `<AccountItem>[]`
+/// * summary: `AccountSummary()`
+/// * months: `<String, AccountsMonthItem>{"2020-08":{}}`
+/// * count: `1`
+/// {@end-tool}
+...
+/// {@tool json2dart --name AccountsMonthItem}
+/// * blance: `38.9`
+/// {@end-tool}
+```
+  如果你想把`AccountsMonthItem`改为`AccMonthItem`，并新增一个字段`description`，
+  修改所有文档注释中的名称即可，文件中代码无需修改，然后重新生成即可
+```dart
+/// {@tool json2dart --name Accounts}
+/// * items: `<AccountItem>[]`
+/// * summary: `AccountSummary()`
+/// * months: `<String, AccMonthItem>{"2020-08":{}}`
+/// * count: `1`
+/// {@end-tool}
+...
+/// {@tool json2dart --name AccMonthItem}
+/// * blance: `38.9`
+/// * description: `"月描述"`
+/// {@end-tool}
+```
+  执行命令重新构建，增加`--dry-run`参数先查看并对比输出
+```bash
+$ json2dart --name Accounts --rebuild lib/models/accounts.dart --dry-run
+```
+  没有问题，使用`-f`或`--force`保存
+```bash
+$ json2dart --name Accounts --rebuild lib/models/accounts.dart -f
+```
+
+## 注释
+
+  有效的注释信息都包含在`{@tool json2dart ...}`和`{@end-tool}`，之间的每一行注释代表的是
+  当前类中的一个属性，`*`后面跟着属性名(如果属性名与JSON数据中的字段名不一致，后面用括号包含
+  原始的字段名，如果一致，则可以不需要)，然后是冒号后面跟着用反引号包含来自JOSN的示例数据或Dart类。
+```dart
+/// * 类属性名(JSON字段名): `1` // 整数
+/// * 类属性名(JSON字段名): `1.1` // 浮点数
+/// * 类属性名(JSON字段名): `"12.3"` // 字符串
+/// * 类属性名(JSON字段名): `""` // 空字符串
+/// * 类属性名(JSON字段名): `true` // 布尔类型
+/// * 类属性名(JSON字段名): `null` // 空对象
+/// * 类属性名(JSON字段名): `DartClass()` // 对象
+/// * 类属性名(JSON字段名): `<DartItem>[]` // 对象数组
+/// * 类属性名(JSON字段名): `<String, DartItem>{"sample":{}}` // 对象表
+/// * 类属性名(JSON字段名): `<String, dynamic>{"sample":"value"}` // 表
+```
+
+## 配置
+
+  工作目录下的`.json2dart`是公共配置文件，通常放在项目的根目录下
+```json
+{
+  "picker": {
+    "path.of.data": {
+      "path.of.required.key1": true,
+      "path.of.required.key2": true,
+      "path.of.not.exist.key": false
+    }
+  },
+  "array": ["list", "items"],
+  "variables": ["json", "j", "d", "_json"],
+  "dir": "lib/models", 
+  "formatter": "dartfmt",
+  "maxComment": 0,
+  "fromOption": {// Can be an object or a file name
+    "headers": {
+      "Authorization": "Bearer token"
+    }
+  }
+}
+```
+
+* `picker` 从输入JSON中选择真正的数据对象. 当接口返回的对象外层是统一的格式时非常有效.
+* `array` 常用的数组字段名, 包含在此数组中的字段不会被拼接到对象名中
+* `variables` 可用的变量列表，用于解决生成的方法与对象命名冲突的问题
+* `dir` 存储生成的对象的目录，默认`lib/models`
+* `formatter` 代码格式化工具
+* `maxComment` 文档注释中额外存储JSON对象最大长度，用于指示保留额外的JSON，默认0，表示不保留任何额外的JSON数据，只保留必须的
+* `fromOption` 用于获取JSON数据的选项，通常用在获取HTTP的JSON数据，比如Headers。
+
+ 比如, [example/.json2dart](example/.json2dart)的配置如下
+```json
+{
+  "picker": {
+    "api.data": {
+      "api.success": true,
+      "api.error": true,
+      "api.error.code": false
+    }
+  },
+  "array": ["list", "items"]
+}
+```
+
+  如果输入的JSON数据如下，并想命名为`Test`类
+```json
+{
+  "api": {
+    "success": true,
+    "data": {
+      "count": 1,
+      "items": [{
+        "id": 1,
+        "name": "name"
+      }]
+    },
+    "error": null
+  }
+}
+```
+  用于生成类的真实数据是
+```json
+{
+  "count": 1,
+  "items": [{
+    "id": 1,
+    "name": "name"
+  }]
+}
+```
+  然后会生成两个类: `Test` and `TestItem`, [example/lib/models/test.dart](example/lib/models/test.dart)

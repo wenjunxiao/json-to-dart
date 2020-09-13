@@ -1,0 +1,33 @@
+{
+  "data": {
+    "items": [{
+      "id": 1,
+      "acc_name": "name",
+      "totalBalance": 38.9,
+      "details": [{
+        "id": 11,
+        "amount": 10.1,
+        "remark": "add"
+      }]
+    }],
+    "summary": {
+      "blance": 38.9,
+      "users": 1,
+      "json": {
+        "j": 1,
+        "d": "a"
+      }
+    },
+    "months": {
+      "2020-08": {
+        "blance": 38.9
+      },
+      "2020-09": {
+        "blance": 38.9
+      }
+    },
+    "count": 1
+  },
+  "error": null,
+  "success": true
+}
