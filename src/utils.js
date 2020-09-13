@@ -115,7 +115,15 @@ function formatCode (raw, formatter) {
   }
 }
 
+function ifUndefined(v1, v2) {
+  if (typeof v1 === 'undefined') {
+    return v2;
+  }
+  return v1;
+}
+
 module.exports = {
+  ifUndefined,
   NOT_FOUND,
   formatCode,
   readJsonOrFile,

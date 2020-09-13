@@ -58,16 +58,25 @@ async function parseObject (rb, obj, cfg, opts) {
       rb.prompt('\nThe following array child objects are detected(' + name + '.' + key + '[]):\n%s\n', JSON.stringify(item, null, 2));
       let defName = mp.name;
       if (!defName) {
-        defName = name;
-        if (cfg.nameTrim) {
-          defName = defName.replace(new RegExp(cfg.nameTrim + '$'), '');
+        defName = '';
+        if (opts.concat) {
+          defName = name;
         }
         if (!array.includes(key)) {
           defName += upperFirst(key);
         }
-        if (mp.suffix !== false) {
-          defName += 'Item';
-          mp.nameTrim = 'Item';
+        if (opts.prefix) {
+          defName = opts.prefix + defName;
+        }
+        if (cfg.nameTrim) {
+          defName = defName.replace(new RegExp(cfg.nameTrim + '$'), '');
+        }
+        if (mp.suffix !== false && opts.suffix !== false && opts.arrayItemSuffix) {
+          defName += opts.arrayItemSuffix;
+          mp.nameTrim = opts.arrayItemSuffix;
+        }
+        if (!defName) {
+          defName = upperFirst(key);
         }
       }
       return rb.questionAsync('Enter name of item of array (' + defName + '): ', defName).then(function (keyName) {
@@ -83,7 +92,17 @@ async function parseObject (rb, obj, cfg, opts) {
       });
     } else if (val && typeof val === 'object') {
       rb.prompt('\nThe following child object was detected(' + name + '.' + key + '):\n%s\n', JSON.stringify(val, null, 2).trim());
-      let defName = mp.name || (name + upperFirst(key));
+      let defName = mp.name;
+      if (!defName) {
+        if (opts.concat) {
+          defName = name + upperFirst(key);
+        } else {
+          defName = upperFirst(key);
+        }
+        if (opts.prefix) {
+          defName = opts.prefix + defName;
+        }
+      }
       let defOpt = 0;
       if (mp.mapped) {
         defOpt = 1;
@@ -371,6 +390,9 @@ module.exports = function (rb, options) {
       if (!output) {
         options.name = name;
         return options;
+      }
+      if (options.config || options.config === false) {
+        return Object.assign(options, { name });
       }
       return restoreConfig(output).then(function (config) {
         return Object.assign(config, options, { name });

@@ -7,9 +7,9 @@ const { merge } = require('lodash');
 const generate = require('../src/generate');
 const restore = require('../src/restore');
 const ReadBlock = require('../src/read-block');
-const { 
-  getArg, name2file, getShortArg, 
-  readJsonOrFile, formatCode, NOT_FOUND 
+const {
+  getArg, name2file, getShortArg, ifUndefined,
+  readJsonOrFile, formatCode, NOT_FOUND
 } = require('../src/utils');
 const locale = require('../src/locale');
 
@@ -19,7 +19,9 @@ function zhHelp () {
   return console.error(`使用: ${CMD} [options...]
 
 选项: 
-      --config CONFIG FILE    JSON对象的特殊配置。通常配置已经包含在生成的Dart文件中。
+      --[no-]concat           是否连接键的路径作为类名(默认: true)
+      --[no-]config [CONFIG]  JSON对象的特殊配置[文件](默认: 包含在已经生成的Dart文件中的配置)
+                              \`--no-config\`表示不加载Dart文件中的配置，使用全新的配置生成
       --dir CODE DIRECTORY    *存储生成代码的目录。
       --dry-run               只是执行并输出结果，但是不会存储文件。
       --file DART FILE        指定存储文件，默认会根据类名得到文件
@@ -30,10 +32,12 @@ function zhHelp () {
   -l, --language LANG         帮助信息的语言(zh/en)
       --max-comment LENGTH    *注释中最大JSON数据长度, 用于在注释中存储冗余的JSON数据(默认: 0, 不存储额外非必要的JSON)
   -n, --name NAME             生成类的名称.
+      --[no-]prefix [PREFIX]  除了顶级类之外其他所有类名的前缀
       --rebuild DART FILE     基于Dart文件的注释中的配置信息重新生成该文件。通常用于全局的配置改变了，或者
                               或者Dart文件中的有效的注释信息被修改了，比如添加了字段、修改了类名
       --restore DART FILE     从Dart文件中还原JSON数据
       --[no-]strict           *使用严格模式, 所有的数字都会使用更具体的类型，比如int、double(默认: false，所有的数字使用num类型)
+      --[no-]suffix           数组项是否需要追加\`arrayItemSuffix\`定义的后缀作为类名(默认: true)
       --verbose               打印更多详细信息.
   -y, --yes                   对于有默认选项的直接使用默认选项进行生成，而不需要确认
 
@@ -73,8 +77,11 @@ function zhHelp () {
 function help () {
   return console.error(`Usage: ${CMD} [options...]
 Options: 
-      --config CONFIG FILE   The JSON object specific configuration. Usually the configuration is already 
-                             included in the generated dart file.
+      --[no-]concat          Concat the key path as the class name
+      --[no-]config [CONFIG] The JSON object specific configuration (default: the configuration is already 
+                             included in the generated dart file);
+                             \`--no-config\` means generate without the configuration included in the
+                             generated dart file
       --dir CODE DIRECTORY   *The directory where the generated file is stored.
       --dry-run              Just run and output the result, won't save to file.
       --file DART FILE       Output file, default based on class name
@@ -87,12 +94,14 @@ Options:
       --max-comment LENGHT   *The max commnet length of object, used to redundantly store 
                              JSON data in comments (default: 0, no additional non-essential JSON)
   -n, --name CLASS NAME      The class name to be generated of top object.
+      --[no-]prefix [PREFIX] The prefix of all class name except the top class
       --rebuild DART FILE    Rebuild dart based on its own configuration in the dart file.
                              Usually in the global configuration changes, or effective comments 
                              in the dart file changes, such as, add field or rename class name,etc.
       --restore DART FILE    Restore json object from the generated dart file.
       --strict               *Generate with strict mode, the number will specify a specific type,
                              such as int, double. (default: false, all numbers are of type num).
+      --[no-]suffix          The array item with or without a prefix defined by \`arrayItemSuffix\`.
       --verbose              Print more infomation.
   -y, --yes                  Automatic generate use default option, without prompt.
 
@@ -137,10 +146,10 @@ function defaultNaN (v, d) {
 }
 
 function main () {
-  let l = getArg('language') || getShortArg('l');
-  if (getArg('version') || getShortArg('v')) {
+  let l = ifUndefined(getArg('language'), getShortArg('l'));
+  if (ifUndefined(getArg('version'), getShortArg('v'))) {
     return console.log(require('../package.json').version);
-  } else if (getArg('help') || getShortArg('h')) {
+  } else if (ifUndefined(getArg('help'), getShortArg('h'))) {
     if (!l) {
       l = locale();
     }
@@ -150,10 +159,14 @@ function main () {
     return help();
   }
   const verbose = getArg('verbose');
-  const yes = getArg('yes') || getShortArg('y');
-  const name = getArg('name') || getShortArg('n');
+  const yes = ifUndefined(getArg('yes'), getShortArg('y'));
+  const name = ifUndefined(getArg('name'), getShortArg('n'));
   const config = getArg('config');
   const restoreFrom = getArg('restore');
+  const concat = getArg('concat');
+  const prefix = ifUndefined(getArg('prefix'), getShortArg('p'));
+  const suffix = getArg('suffix');
+  
   if (restoreFrom) {
     return restore(restoreFrom).then(function (data) {
       if (verbose) {
@@ -166,12 +179,19 @@ function main () {
     });
   }
   const cfg = readJsonOrFile('.json2dart');
-  if (typeof cfg.formatter === 'undefined') {
-    cfg.formatter = 'dartfmt';
+  const defaults = {
+    formatter: 'dartfmt',
+    arrayItemSuffix: 'Item',
+    concat: true,
+  };
+  for (let key in defaults) {
+    if (typeof cfg[key] === 'undefined') {
+      cfg[key] = defaults[key];
+    }
   }
   let dir = getArg('dir');
   let dryRun = getArg('dry-run') === true;
-  let force = (getArg('force') || getShortArg('f')) === true;
+  let force = ifUndefined(getArg('force'), getShortArg('f')) === true;
   let formatter = getArg('formatter', cfg.formatter);
   let strict = getArg('strict');
   let maxComment = getArg('max-comment');
@@ -192,7 +212,7 @@ function main () {
   function normalize (data, from, fromOption, cmd, args) {
     const file = getOutputFile(data.name);
     cmd = cmd || CMD;
-    cmd += (args || ` --name ${data.name}`);
+    cmd += (args || ` -n ${data.name}`);
     if (dir) {
       cmd += ` --dir ${dir}`;
     }
@@ -201,6 +221,15 @@ function main () {
     }
     if (strict) {
       cmd += ' --strict';
+    }
+    if (concat === false) {
+      cmd += ' --no-concat';
+    }
+    if (prefix) {
+      cmd += ` -p ${prefix}`;
+    }
+    if (suffix === false) {
+      cmd += ' --no-suffix';
     }
     if (maxComment) {
       cmd += ` --max-comment ${maxComment}`;
@@ -266,6 +295,15 @@ function main () {
         console.error(JSON.stringify(data, null, 2));
         console.error();
       }
+      if (typeof concat === 'boolean') {
+        data.concat = concat;
+      }
+      if (typeof prefix !== 'undefined') {
+        data.prefix = prefix;
+      }
+      if (typeof suffix !== 'undefined') {
+        data.suffix = suffix;
+      }
       for (let ck in cfg) {
         if (!(ck in data)) {
           data[ck] = cfg[ck];
@@ -325,6 +363,16 @@ function main () {
       if (typeof strict === 'boolean') {
         opts.strict = strict;
       }
+      if (typeof concat === 'boolean') {
+        opts.concat = concat;
+      }
+      if (typeof prefix !== 'undefined') {
+        opts.prefix = prefix;
+      }
+      if (typeof suffix !== 'undefined') {
+        opts.suffix = suffix;
+      }
+      opts.config = config;
       return generate(rb, merge(config, opts));
     }).then(function (data) {
       return normalize(data, from, fromOption);

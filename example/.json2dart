@@ -10,6 +10,9 @@
     }
   },
   "array": ["list", "items"],
+  "arrayItemSuffix": "Item",
+  "concat": true,
+  "prefix": "",
   "variables": ["json", "j", "d", "_json"],
   "maxComment": 0
 }
