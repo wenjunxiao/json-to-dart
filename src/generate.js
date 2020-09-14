@@ -1,9 +1,8 @@
-const { merge } = require('lodash');
-const upperFirst = require('./utils').upperFirst;
+const { upperFirst, mergeData, mergeConfig } = require('./utils');
 const restore = require('./restore');
 
 function mergeArray (arr) {
-  return arr.reduce(function (r, o) { return merge(r, o); }, {});
+  return arr.reduce(function (r, o) { return mergeData(r, o); }, {});
 }
 
 function invalidKey (key) {
@@ -327,9 +326,8 @@ function getVal (obj, path) {
   return obj;
 }
 
-function restoreConfig (from) {
+function restoreDataConfig (from) {
   return restore(from).then(function (data) {
-    delete data.data;
     return data;
   }).catch(function (err) {
     if (err.code === 'ENOENT') {
@@ -386,16 +384,23 @@ module.exports = function (rb, options) {
     rb.prompt('\nThe following json object was detected:\n%s\n', JSON.stringify(obj, null, 2).trim());
     let name = options.name || options.map && options.map.name;
     return rb.questionWhenEmpty('Enter name of json object: ', name).then(function (name) {
+      options.name = name;
+      // 获取输出文件
       let output = typeof options.output === 'function' ? options.output(name) : options.output;
       if (!output) {
-        options.name = name;
         return options;
       }
-      if (options.config || options.config === false) {
-        return Object.assign(options, { name });
+      let withoutConfig = options.config || options.config === false;
+      if (withoutConfig && !options.merge) {
+        return options;
       }
-      return restoreConfig(output).then(function (config) {
-        return Object.assign(config, options, { name });
+      return restoreDataConfig(output).then(function (config) {
+        if (options.merge) {
+          obj = mergeData(config.data, obj);
+          rb.prompt('\nThe merged json object is as follows:\n%s\n', JSON.stringify(obj, null, 2).trim());
+        }
+        delete config.data;
+        return mergeConfig(config, options);
       });
     }).then(function (options) {
       let map = options.map || {};
