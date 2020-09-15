@@ -141,6 +141,9 @@ function mergeConfigs (objs, dst) {
   dst = dst || objs.shift();
   if (!dst) return {};
   let src = objs.shift();
+  while (!src && objs.length > 0) {
+    src = objs.shift(); 
+  }
   if (!src) return dst;
   for (let k in src) {
     let v = src[k];
@@ -190,6 +193,9 @@ function mergeDatas (objs, dst) {
   dst = dst || objs.shift();
   if (!dst) return {};
   let src = objs.shift();
+  while (!src && objs.length > 0) {
+    src = objs.shift();
+  }
   if (!src) return dst;
   for (let k in src) {
     let v = src[k];
