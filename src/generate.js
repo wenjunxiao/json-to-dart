@@ -53,6 +53,9 @@ async function parseObject (rb, obj, cfg, opts) {
     let val = obj[key];
     let mp = map[key] || {};
     if (Array.isArray(val)) {
+      if (val.length === 0 || typeof val[0] !== 'object') {
+        return;
+      }
       let item = mergeArray(val);
       rb.prompt('\nThe following array child objects are detected(' + name + '.' + key + '[]):\n%s\n', JSON.stringify(item, null, 2));
       let defName = mp.name;
@@ -272,6 +275,12 @@ async function parseObject (rb, obj, cfg, opts) {
             break;
           case 'string':
             target = as = 'String';
+            break;
+          default:
+            if (Array.isArray(val)) {
+              target = 'List';
+              as = 'List';
+            }
             break;
         }
         if (transfer) {
